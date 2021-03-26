@@ -1,0 +1,106 @@
+version: '3'
+
+services:
+  growi:
+    build:
+      context: ./growi
+    container_name: growi
+    ports:
+      - 3000:3000
+    networks:
+      - share
+      - default
+    depends_on:
+      - mongo
+      - elasticsearch
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/growi
+      - ELASTICSEARCH_URI=http://elasticsearch:9200/growi
+      - PASSWORD_SEED=changeme
+      - FILE_UPLOAD=mongodb   # activate this line if you use MongoDB GridFS rather than AWS
+      # - FILE_UPLOAD=local     # activate this line if you use local storage of server rather than AWS
+      - MATHJAX=1             # activate this line if you want to use MathJax
+      # - PLANTUML_URI=http://  # activate this line and specify if you use your own PlantUML server rather than public plantuml.com
+      - HACKMD_URI=$HACKMD_URI    # activate this line and specify HackMD server URI which can be accessed from GROWI client browsers
+      - HACKMD_URI_FOR_SERVER=http://hackmd:3000  # activate this line and specify HackMD server URI which can be accessed from this server container
+      - APP_SITE_URL=$GROWI_URI
+      # - FORCE_WIKI_MODE='public'    # activate this line to force wiki public mode
+      # - FORCE_WIKI_MODE='private'   # activate this line to force wiki private mode
+    command: "dockerize
+              -wait tcp://mongo:27017
+              -wait tcp://elasticsearch:9200
+              -timeout 60s
+              npm run server:prod"
+    restart: unless-stopped
+    volumes:
+      - growi_data:/data
+
+  mongo:
+    image: mongo:4.4
+    restart: unless-stopped
+    volumes:
+      - mongo_configdb:/data/configdb
+      - mongo_db:/data/db
+
+  elasticsearch:
+    build:
+      context: ./elasticsearch
+      dockerfile: ./Dockerfile
+    environment:
+      - bootstrap.memory_lock=true
+      # - ES_JAVAOPTS=-Xms512m -Xmx512m -Dhttp.proxyHost=http://proxy.noc.titech.ac.jp -Dhttp.proxyPort=3128 -Dhttps.proxyHost=http://proxy.noc.titech.ac.jp -Dhttps.proxyPort=3128
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m  # increase amount if you have enough memory
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    restart: unless-stopped
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+      - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+
+  ##
+  # HackMD(CodiMD) container
+  # see https://github.com/hackmdio/codimd#configuration
+  #
+  hackmd:
+    build:
+      context: ./hackmd
+    environment:
+      - GROWI_URI=$GROWI_URI
+      - CMD_DB_URL=mysql://hackmd:hackmdpass@mariadb:3306/hackmd
+      - CMD_CSP_ENABLE=false
+    ports:
+      - 3100:3000
+    networks:
+      - share
+      - default
+    depends_on:
+      - mariadb
+    restart: unless-stopped
+
+  ##
+  # MariaDB
+  # see https://hub.docker.com/_/mariadb/
+  mariadb:
+    image: mariadb:10.3
+    command: mysqld --character-set-server=utf8 --collation-server=utf8_general_ci
+    environment:
+      - MYSQL_USER=hackmd
+      - MYSQL_PASSWORD=hackmdpass
+      - MYSQL_DATABASE=hackmd
+      - MYSQL_RANDOM_ROOT_PASSWORD=true
+    restart: unless-stopped
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+volumes:
+  growi_data:
+  mongo_configdb:
+  mongo_db:
+  es_data:
+  mariadb_data:
+
+networks:
+  share:
+    external: true

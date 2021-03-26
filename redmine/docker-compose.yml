@@ -1,0 +1,42 @@
+version: '3'
+services:
+  # proxy:
+  #   build: ./nginx
+  #   container_name: proxy
+  #   restart: always
+  #   ports:
+  #     - "80:80"
+  #   depends_on:
+  #     - redmine
+
+  redmine:
+    build: ./redmine
+    container_name: redmine
+    restart: always
+    expose:
+      - "3000"
+    networks:
+      - share
+      - default
+    depends_on:
+      - db-redmine
+    environment:
+      REDMINE_DB_POSTGRES: db-redmine
+      REDMINE_DB_PASSWORD: password
+      REDMINE_DB_ENCODING: utf8
+      REDMINE_DB_PORT: 5432
+
+  db-redmine:
+    image: postgres:13.1
+    container_name: db-redmine
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: password
+    expose:
+      - 5432
+    volumes:
+      - "./data/redmine/db:/var/lib/postgresql/data"
+
+networks:
+  share:
+    external: true

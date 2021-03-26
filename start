@@ -1,0 +1,11 @@
+#!/bin/bash
+for i in growi redmine openproject jupyterhub proxy
+do
+if [ $i = 'proxy' ]
+then
+  sleep 10
+fi
+tmux split-window -h -d "cd $i && docker-compose up"
+done
+tmux select-layout tiled
+

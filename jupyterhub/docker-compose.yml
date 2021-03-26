@@ -1,0 +1,52 @@
+version: '3'
+
+services:
+  jupyterhub:
+    build: jupyterhub
+    image: jupyterhub_img
+    container_name: jupyterhub
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - jupyterhub_data:/srv/jupyterhub
+    environment:
+      - NOTEBOOK_CONTAINER=r-notebook_img
+      - DOCKER_NETWORK_NAME=${COMPOSE_PROJECT_NAME}_default
+      - HUB_IP=jupyterhub
+    restart: on-failure
+    ports:
+      - "3002:8000"
+    networks:
+      - share
+      - default
+
+  jupyternotebook:
+    build: ./notebook
+    image: r-notebook_img
+    container_name: jupyternotebook_container
+    links:
+      - mysql:mysql
+    command: echo
+
+  mysql:
+    build: ./mysql
+    container_name: mysql
+    restart: 'always'
+    expose:
+      - '3306'
+    ports:
+      - "3306:3306"
+
+  # nginx:
+  #   build: ./nginx
+  #   container_name: proxy
+  #   restart: always
+  #   ports:
+  #     - "80:80"
+
+volumes:
+  jupyterhub_data:
+
+networks:
+  share:
+    external:
+      true
